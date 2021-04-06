@@ -4,15 +4,16 @@
 #include <Adafruit_Sensor.h>
 #include <Wire.h>
 
+String input;
+
 Adafruit_MPU6050 mpu;
-const double threshold = 0.2; // How far above the baseline do we count a key press
+const double threshold = -0.05; // How far above the baseline do we count a key press
 const double samplingRate = 20; // Sampling Freq in Hz
 const double calibrationTime = 5000; // Calibration time in milliseconds
 double baseline;
 
 unsigned long debounceDelay = 100; // Min time between key presses (has to be greater than 1/samplingRate);
 unsigned long lastDebounceTime = 0; 
-
 
 const int numReadings = 10;
 double readings[numReadings];      // the readings to use for the moving average
@@ -23,10 +24,24 @@ double average = 0;                // the average
 
 void setup(void) {
   Serial.begin(115200);
+  /*
   while (!Serial) {
     delay(10); // will pause Zero, Leonardo, etc until serial console opens
   }
 
+  while(!Serial.available()); // Wait until we receive calibration time
+  int calibrationTime;
+  // Read it in
+  input = Serial.readString();
+
+  if (input.length() > 0) {
+    Serial.println(input);
+    calibrationTime = input.toInt();
+  }
+  else {
+    calibrationTime = 5000;
+  }
+  */
   // Try to initialize!
   if (!mpu.begin()) {
     Serial.println("Failed to find MPU6050 chip");
@@ -35,12 +50,7 @@ void setup(void) {
     }
   }
 
-  // initialize all the readings to 0:
-  for (int thisReading = 0; thisReading < numReadings; thisReading++) {
-    readings[thisReading] = 0;
-  }
-
-  mpu.setAccelerometerRange(MPU6050_RANGE_4_G);
+  mpu.setAccelerometerRange(MPU6050_RANGE_2_G);
   mpu.setGyroRange(MPU6050_RANGE_250_DEG);
   mpu.setFilterBandwidth(MPU6050_BAND_21_HZ); // Low-Pass Filter w/ Freq. Cutoff of 21Hz
   Serial.println("");
@@ -65,7 +75,6 @@ void setup(void) {
 }
 
 void loop() {
-
   /* Get new sensor events with the readings */
   sensors_event_t a, g, temp;
   mpu.getEvent(&a, &g, &temp);
@@ -88,14 +97,14 @@ void loop() {
   // calculate the average:
   average = total / numReadings;
   
-  if (average > threshold+baseline) {
+  if (average < threshold+baseline) {
     // Pseudo-Debouncing
     if((millis() - lastDebounceTime) > debounceDelay){
-      Serial.println("Key Pressed!");
+      lastDebounceTime = millis();
     }
   }
-  Serial.println(average);
 
-
+  Serial.println(millis() - lastDebounceTime);
+  //Serial.println(average);
   delay((1/samplingRate)*1000);
 }
